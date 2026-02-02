@@ -1,14 +1,9 @@
 """
-AI Analytics Dashboard v3.0 - Production Edition
-Industry-Grade Analytics Platform with Semantic Intelligence
+Advanced Analytics Platform v5.0 - Enterprise Edition
+Production-grade analytics with integrated AI intelligence, RAG-powered insights, and agentic analysis
 
-Architecture Flow:
-User Upload → Semantic Profiler → Business Model Generator → 
-Metric Intelligence → Prediction Eligibility → Multi-model Forecast →
-Insight Engine → Narrative AI → Visualization
-
+Built to rival Tableau AI and Power BI Copilot with autonomous analytical capabilities
 Author: Akshat Banga
-License: MIT
 """
 
 import streamlit as st
@@ -17,693 +12,210 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from prophet import Prophet
-from datetime import datetime, timedelta
+from datetime import datetime
 import warnings
 import json
-from typing import Optional, Tuple, List, Dict, Any
-from dataclasses import dataclass
+from typing import Dict, List, Any, Optional
+warnings.filterwarnings('ignore')
 
-# Import semantic engine
+# Import core engines
 from semantic_engine import (
     DatasetProfiler, SemanticClassifier, 
-    MetricIntelligenceEngine, ForecastEligibilityEngine,
-    KPICandidate, ForecastEligibility
+    MetricIntelligenceEngine, ForecastEligibilityEngine
 )
 
-warnings.filterwarnings('ignore')
+from ai_agent import (
+    AIAnalysisAgent,
+    NarrativeGenerator,
+    VisualizationRecommender,
+    AdvancedForecastEngine
+)
+
+from llm_integration import (
+    LLMAnalyticEngine,
+    RAGDocumentSystem,
+    AgenticAnalysisOrchestrator
+)
 
 # ============================================================================
 # PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
-    page_title="AI Analytics Dashboard v3.0",
-    page_icon="🚀",
+    page_title="Advanced Analytics Platform",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# SESSION STATE
-# ============================================================================
+# Session state initialization
 if 'df' not in st.session_state:
     st.session_state.df = None
-if 'semantic_model' not in st.session_state:
-    st.session_state.semantic_model = None
-if 'kpi_candidates' not in st.session_state:
-    st.session_state.kpi_candidates = []
-if 'insights' not in st.session_state:
-    st.session_state.insights = {}
+if 'analysis_complete' not in st.session_state:
+    st.session_state.analysis_complete = False
+if 'rag_system' not in st.session_state:
+    st.session_state.rag_system = None
+if 'agentic_orchestrator' not in st.session_state:
+    st.session_state.agentic_orchestrator = None
 
 # ============================================================================
-# STYLING
+# PROFESSIONAL STYLING
 # ============================================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    :root {
-        --primary: #6366f1;
-        --secondary: #10b981;
-        --accent: #f59e0b;
-        --danger: #ef4444;
-        --background: #0f172a;
-        --surface: #1e293b;
-        --text: #f1f5f9;
-        --text-muted: #94a3b8;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap');
     
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #1a1d29 0%, #2d3142 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     
     .main-header {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.1));
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.05));
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        border-radius: 8px;
         padding: 2rem;
         margin-bottom: 2rem;
-        text-align: center;
     }
     
     .main-header h1 {
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: 700;
-        background: linear-gradient(135deg, #6366f1, #10b981, #f59e0b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #ffffff;
         margin-bottom: 0.5rem;
     }
     
+    .main-header p {
+        color: #94a3b8;
+        font-size: 1rem;
+    }
+    
     .metric-card {
-        background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(51, 65, 85, 0.7));
-        border: 1px solid rgba(99, 102, 241, 0.2);
-        border-radius: 12px;
+        background: rgba(45, 49, 66, 0.8);
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        border-radius: 6px;
         padding: 1.5rem;
         text-align: center;
         transition: all 0.3s ease;
     }
     
     .metric-card:hover {
-        border-color: rgba(99, 102, 241, 0.5);
+        border-color: rgba(79, 172, 254, 0.4);
         transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+        box-shadow: 0 4px 12px rgba(79, 172, 254, 0.15);
     }
     
     .metric-value {
         font-size: 2rem;
         font-weight: 700;
-        background: linear-gradient(135deg, #6366f1, #818cf8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #4facfe;
+        font-family: 'Roboto Mono', monospace;
     }
     
     .metric-label {
         color: #94a3b8;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
         margin-top: 0.5rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+    
+    .insight-card {
+        background: rgba(45, 49, 66, 0.6);
+        border-left: 3px solid #4facfe;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+    }
+    
+    .insight-card h4 {
+        color: #ffffff;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .insight-card p {
+        color: #cbd5e1;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    
+    .recommendation-card {
+        background: rgba(79, 172, 254, 0.05);
+        border-left: 3px solid #10b981;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        border-radius: 4px;
     }
     
     .status-badge {
         display: inline-block;
         padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 0.85rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
         font-weight: 600;
+        text-transform: uppercase;
     }
     
     .status-success {
-        background: rgba(16, 185, 129, 0.2);
+        background: rgba(16, 185, 129, 0.15);
         color: #10b981;
-        border: 1px solid #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
     
     .status-warning {
-        background: rgba(245, 158, 11, 0.2);
+        background: rgba(245, 158, 11, 0.15);
         color: #f59e0b;
-        border: 1px solid #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
     }
     
     .status-error {
-        background: rgba(239, 68, 68, 0.2);
+        background: rgba(239, 68, 68, 0.15);
         color: #ef4444;
-        border: 1px solid #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
     }
     
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.05));
-        border-left: 4px solid #6366f1;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-radius: 8px;
-    }
-    
-    .insight-card {
-        background: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        border-radius: 12px;
+    .analysis-section {
+        background: rgba(45, 49, 66, 0.4);
+        border: 1px solid rgba(79, 172, 254, 0.1);
+        border-radius: 6px;
         padding: 1.5rem;
         margin: 1rem 0;
     }
     
-    .narrative-section {
-        background: linear-gradient(145deg, rgba(16, 185, 129, 0.1), rgba(30, 41, 59, 0.9));
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+    .analysis-section h3 {
+        color: #ffffff;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# ============================================================================
-# BUSINESS MODEL GENERATOR
-# ============================================================================
-
-class BusinessModelGenerator:
-    """Generates business intelligence model from semantic classification"""
-    
-    def __init__(self, df: pd.DataFrame, semantic_model):
-        self.df = df
-        self.semantic = semantic_model
-    
-    def generate_model(self) -> Dict[str, Any]:
-        """Generate complete business model"""
-        return {
-            'entity_type': self._infer_entity_type(),
-            'grain': self._determine_grain(),
-            'primary_time_dimension': self.semantic.time_columns[0] if self.semantic.time_columns else None,
-            'fact_tables': self._identify_facts(),
-            'dimension_hierarchy': self._build_hierarchy(),
-            'aggregation_rules': self._define_aggregations()
-        }
-    
-    def _infer_entity_type(self) -> str:
-        """Infer what the dataset represents"""
-        cols_lower = [c.lower() for c in self.df.columns]
-        
-        if any('customer' in c or 'client' in c for c in cols_lower):
-            return "Customer Transactions"
-        elif any('product' in c or 'item' in c for c in cols_lower):
-            return "Product Sales"
-        elif any('employee' in c or 'staff' in c for c in cols_lower):
-            return "HR/Workforce"
-        elif any('order' in c for c in cols_lower):
-            return "Order Management"
-        else:
-            return "General Business Data"
-    
-    def _determine_grain(self) -> str:
-        """Determine granularity of data"""
-        if len(self.df) > 100000:
-            return "Transactional"
-        elif len(self.df) > 1000:
-            return "Operational"
-        else:
-            return "Summarized"
-    
-    def _identify_facts(self) -> List[str]:
-        """Identify fact table candidates"""
-        return self.semantic.measures + self.semantic.currencies + self.semantic.counts
-    
-    def _build_hierarchy(self) -> Dict[str, List[str]]:
-        """Build dimension hierarchies"""
-        hierarchy = {}
-        
-        if self.semantic.time_columns:
-            hierarchy['Time'] = self.semantic.time_columns
-        
-        if self.semantic.dimensions:
-            hierarchy['Descriptive'] = self.semantic.dimensions
-        
-        return hierarchy
-    
-    def _define_aggregations(self) -> Dict[str, str]:
-        """Define how metrics should aggregate"""
-        rules = {}
-        
-        for col in self.semantic.currencies:
-            rules[col] = 'SUM'
-        
-        for col in self.semantic.counts:
-            rules[col] = 'SUM'
-        
-        for col in self.semantic.rates:
-            rules[col] = 'AVG'
-        
-        for col in self.semantic.measures:
-            if col not in rules:
-                rules[col] = 'SUM'
-        
-        return rules
-
-
-# ============================================================================
-# INSIGHT ENGINE
-# ============================================================================
-
-@dataclass
-class Insight:
-    """Represents a business insight"""
-    type: str
-    priority: str
-    title: str
-    description: str
-    metric: Optional[str] = None
-    value: Optional[float] = None
-    change: Optional[float] = None
-    
-    def to_dict(self):
-        return {
-            'type': self.type,
-            'priority': self.priority,
-            'title': self.title,
-            'description': self.description,
-            'metric': self.metric,
-            'value': self.value,
-            'change': self.change
-        }
-
-
-class InsightEngine:
-    """Generates automated insights from data"""
-    
-    def __init__(self, df: pd.DataFrame, semantic_model, kpis: List[KPICandidate]):
-        self.df = df
-        self.semantic = semantic_model
-        self.kpis = kpis
-    
-    def generate_insights(self) -> List[Insight]:
-        """Generate all insights"""
-        insights = []
-        
-        # KPI insights
-        insights.extend(self._analyze_kpis())
-        
-        # Trend insights
-        if self.semantic.time_columns:
-            insights.extend(self._analyze_trends())
-        
-        # Distribution insights
-        insights.extend(self._analyze_distributions())
-        
-        # Correlation insights
-        insights.extend(self._analyze_correlations())
-        
-        # Sort by priority
-        priority_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
-        insights.sort(key=lambda x: priority_order.get(x.priority, 999))
-        
-        return insights
-    
-    def _analyze_kpis(self) -> List[Insight]:
-        """Analyze KPI metrics"""
-        insights = []
-        
-        for kpi in self.kpis[:5]:  # Top 5 KPIs
-            if kpi.column not in self.df.columns:
-                continue
-            
-            series = self.df[kpi.column].dropna()
-            
-            if len(series) == 0:
-                continue
-            
-            # Summary statistics
-            mean_val = series.mean()
-            std_val = series.std()
-            cv = std_val / mean_val if mean_val != 0 else 0
-            
-            # Volatility insight
-            if cv > 0.5:
-                insights.append(Insight(
-                    type='KPI',
-                    priority='High',
-                    title=f'{kpi.column} shows high volatility',
-                    description=f'Coefficient of variation is {cv:.2f}, indicating significant fluctuation',
-                    metric=kpi.column,
-                    value=mean_val,
-                    change=cv
-                ))
-            
-            # Outlier insight
-            outliers = self._detect_outliers(series)
-            if len(outliers) > len(series) * 0.05:
-                insights.append(Insight(
-                    type='Anomaly',
-                    priority='Medium',
-                    title=f'{kpi.column} contains {len(outliers)} outliers',
-                    description=f'{len(outliers)/len(series):.1%} of values are statistical outliers',
-                    metric=kpi.column
-                ))
-        
-        return insights
-    
-    def _analyze_trends(self) -> List[Insight]:
-        """Analyze time series trends"""
-        insights = []
-        
-        time_col = self.semantic.time_columns[0]
-        
-        for measure in (self.semantic.measures + self.semantic.currencies)[:3]:
-            if measure not in self.df.columns:
-                continue
-            
-            ts = self.df[[time_col, measure]].dropna().sort_values(time_col)
-            
-            if len(ts) < 2:
-                continue
-            
-            # Calculate trend
-            values = ts[measure].values
-            trend = self._calculate_trend(values)
-            
-            if abs(trend) > 0.1:  # Significant trend
-                direction = "increasing" if trend > 0 else "decreasing"
-                insights.append(Insight(
-                    type='Trend',
-                    priority='High' if abs(trend) > 0.3 else 'Medium',
-                    title=f'{measure} is {direction}',
-                    description=f'Detected {direction} trend with {abs(trend):.1%} rate of change',
-                    metric=measure,
-                    change=trend
-                ))
-        
-        return insights
-    
-    def _analyze_distributions(self) -> List[Insight]:
-        """Analyze value distributions"""
-        insights = []
-        
-        for col in self.semantic.measures[:3]:
-            if col not in self.df.columns:
-                continue
-            
-            series = self.df[col].dropna()
-            
-            if len(series) < 10:
-                continue
-            
-            # Skewness
-            from scipy.stats import skew
-            skewness = skew(series)
-            
-            if abs(skewness) > 1:
-                direction = "right" if skewness > 0 else "left"
-                insights.append(Insight(
-                    type='Distribution',
-                    priority='Low',
-                    title=f'{col} is {direction}-skewed',
-                    description=f'Distribution shows {direction} skew (skewness={skewness:.2f})',
-                    metric=col
-                ))
-        
-        return insights
-    
-    def _analyze_correlations(self) -> List[Insight]:
-        """Find significant correlations"""
-        insights = []
-        
-        numeric_cols = self.semantic.measures + self.semantic.currencies + self.semantic.counts
-        numeric_cols = [c for c in numeric_cols if c in self.df.columns]
-        
-        if len(numeric_cols) < 2:
-            return insights
-        
-        # Correlation matrix
-        corr_matrix = self.df[numeric_cols].corr()
-        
-        # Find strong correlations
-        for i in range(len(numeric_cols)):
-            for j in range(i+1, len(numeric_cols)):
-                corr = corr_matrix.iloc[i, j]
-                
-                if abs(corr) > 0.7:  # Strong correlation
-                    relationship = "positive" if corr > 0 else "negative"
-                    insights.append(Insight(
-                        type='Correlation',
-                        priority='Medium',
-                        title=f'Strong {relationship} correlation found',
-                        description=f'{numeric_cols[i]} and {numeric_cols[j]} are {relationship}ly correlated (r={corr:.2f})',
-                        metric=f'{numeric_cols[i]} vs {numeric_cols[j]}',
-                        value=corr
-                    ))
-        
-        return insights
-    
-    def _detect_outliers(self, series: pd.Series) -> pd.Series:
-        """Detect outliers using IQR method"""
-        Q1 = series.quantile(0.25)
-        Q3 = series.quantile(0.75)
-        IQR = Q3 - Q1
-        
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        
-        return series[(series < lower_bound) | (series > upper_bound)]
-    
-    def _calculate_trend(self, values: np.ndarray) -> float:
-        """Calculate trend as percentage change"""
-        if len(values) < 2:
-            return 0.0
-        
-        # Linear regression slope
-        x = np.arange(len(values))
-        slope = np.polyfit(x, values, 1)[0]
-        
-        # Convert to percentage
-        mean_val = np.mean(values)
-        return (slope * len(values)) / mean_val if mean_val != 0 else 0.0
-
-
-# ============================================================================
-# NARRATIVE AI ENGINE (FREE LLM)
-# ============================================================================
-
-class NarrativeAIEngine:
-    """Generates natural language narratives from insights"""
-    
-    def __init__(self, insights: List[Insight], semantic_model):
-        self.insights = insights
-        self.semantic = semantic_model
-    
-    def generate_executive_summary(self) -> str:
-        """Generate executive summary narrative"""
-        
-        if not self.insights:
-            return "No significant insights detected in the dataset."
-        
-        # Count insight types
-        critical = sum(1 for i in self.insights if i.priority == 'Critical')
-        high = sum(1 for i in self.insights if i.priority == 'High')
-        
-        narrative = f"## Executive Summary\n\n"
-        narrative += f"Analysis identified **{len(self.insights)} insights** "
-        narrative += f"({critical} critical, {high} high priority).\n\n"
-        
-        # Top insights
-        narrative += "### Key Findings\n\n"
-        for insight in self.insights[:5]:
-            narrative += f"**{insight.priority}:** {insight.title}\n"
-            narrative += f"- {insight.description}\n\n"
-        
-        # Recommendations
-        narrative += "### Recommendations\n\n"
-        narrative += self._generate_recommendations()
-        
-        return narrative
-    
-    def generate_insight_narrative(self, insight: Insight) -> str:
-        """Generate detailed narrative for single insight"""
-        narrative = f"### {insight.title}\n\n"
-        narrative += f"**Type:** {insight.type} | **Priority:** {insight.priority}\n\n"
-        narrative += insight.description + "\n\n"
-        
-        # Add context-specific details
-        if insight.type == 'Trend':
-            narrative += self._trend_context(insight)
-        elif insight.type == 'Anomaly':
-            narrative += self._anomaly_context(insight)
-        elif insight.type == 'Correlation':
-            narrative += self._correlation_context(insight)
-        
-        return narrative
-    
-    def _generate_recommendations(self) -> str:
-        """Generate actionable recommendations"""
-        recommendations = []
-        
-        # Volatility recommendations
-        volatility_insights = [i for i in self.insights if 'volatility' in i.title.lower()]
-        if volatility_insights:
-            recommendations.append(
-                "- **Monitor volatile metrics** closely and establish alert thresholds"
-            )
-        
-        # Trend recommendations
-        trend_insights = [i for i in self.insights if i.type == 'Trend']
-        if trend_insights:
-            decreasing = sum(1 for i in trend_insights if i.change and i.change < 0)
-            if decreasing > 0:
-                recommendations.append(
-                    f"- **Investigate declining trends** in {decreasing} metric(s)"
-                )
-        
-        # Outlier recommendations
-        outlier_insights = [i for i in self.insights if 'outlier' in i.title.lower()]
-        if outlier_insights:
-            recommendations.append(
-                "- **Review outliers** for data quality or exceptional events"
-            )
-        
-        if not recommendations:
-            recommendations.append("- Continue monitoring key metrics")
-            recommendations.append("- Schedule regular data quality reviews")
-        
-        return "\n".join(recommendations)
-    
-    def _trend_context(self, insight: Insight) -> str:
-        """Add context for trend insights"""
-        if insight.change and insight.change > 0:
-            return "**Implication:** Growth opportunity or potential demand increase.\n"
-        else:
-            return "**Implication:** Potential concern requiring investigation.\n"
-    
-    def _anomaly_context(self, insight: Insight) -> str:
-        """Add context for anomaly insights"""
-        return "**Action:** Verify data quality and investigate root causes.\n"
-    
-    def _correlation_context(self, insight: Insight) -> str:
-        """Add context for correlation insights"""
-        return "**Opportunity:** Leverage relationship for predictive modeling.\n"
-
-
-# ============================================================================
-# MULTI-MODEL FORECAST ENGINE
-# ============================================================================
-
-class MultiModelForecastEngine:
-    """Forecasting with multiple models and ensemble"""
-    
-    def __init__(self, df: pd.DataFrame, time_col: str, metric: str):
-        self.df = df
-        self.time_col = time_col
-        self.metric = metric
-    
-    def forecast_prophet(self, periods: int = 30) -> pd.DataFrame:
-        """Forecast using Prophet model"""
-        # Prepare data
-        ts = self.df[[self.time_col, self.metric]].dropna().copy()
-        ts.columns = ['ds', 'y']
-        ts = ts.sort_values('ds')
-        
-        # Train model
-        model = Prophet(
-            yearly_seasonality=True,
-            weekly_seasonality=True,
-            daily_seasonality=False,
-            changepoint_prior_scale=0.05
-        )
-        
-        model.fit(ts)
-        
-        # Generate forecast
-        future = model.make_future_dataframe(periods=periods)
-        forecast = model.predict(future)
-        
-        return forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
-    
-    def create_forecast_visualization(self, forecast_df: pd.DataFrame) -> go.Figure:
-        """Create interactive forecast visualization"""
-        
-        fig = go.Figure()
-        
-        # Historical data
-        historical = self.df[[self.time_col, self.metric]].dropna()
-        
-        fig.add_trace(go.Scatter(
-            x=historical[self.time_col],
-            y=historical[self.metric],
-            mode='lines+markers',
-            name='Historical',
-            line=dict(color='#6366f1', width=2),
-            marker=dict(size=6)
-        ))
-        
-        # Forecast
-        forecast_only = forecast_df.iloc[-30:]  # Last 30 periods
-        
-        fig.add_trace(go.Scatter(
-            x=forecast_only['ds'],
-            y=forecast_only['yhat'],
-            mode='lines',
-            name='Forecast',
-            line=dict(color='#10b981', width=2, dash='dash')
-        ))
-        
-        # Confidence interval
-        fig.add_trace(go.Scatter(
-            x=forecast_only['ds'],
-            y=forecast_only['yhat_upper'],
-            mode='lines',
-            name='Upper Bound',
-            line=dict(width=0),
-            showlegend=False
-        ))
-        
-        fig.add_trace(go.Scatter(
-            x=forecast_only['ds'],
-            y=forecast_only['yhat_lower'],
-            mode='lines',
-            name='Lower Bound',
-            line=dict(width=0),
-            fillcolor='rgba(16, 185, 129, 0.2)',
-            fill='tonexty',
-            showlegend=True
-        ))
-        
-        fig.update_layout(
-            title=f'{self.metric} Forecast',
-            xaxis_title='Date',
-            yaxis_title=self.metric,
-            template='plotly_dark',
-            hovermode='x unified',
-            height=500
-        )
-        
-        return fig
-
 
 # ============================================================================
 # MAIN APPLICATION
 # ============================================================================
 
 def main():
-    """Main application flow"""
-    
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>🚀 AI Analytics Dashboard v3.0</h1>
-        <p>Industry-Grade Analytics with Semantic Intelligence</p>
+        <h1>Advanced Analytics Platform</h1>
+        <p>Enterprise-grade analytics with integrated artificial intelligence, autonomous analysis, and natural language understanding</p>
     </div>
     """, unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
-        st.markdown("### 📊 Data Upload")
+        st.markdown("### Data Management")
         
         uploaded_file = st.file_uploader(
-            "Upload CSV or Excel",
+            "Upload Dataset",
             type=['csv', 'xlsx', 'xls'],
-            help="Upload your data file to begin analysis"
+            help="Supported formats: CSV, Excel (XLSX, XLS)"
         )
         
         if uploaded_file:
-            # Load data
             try:
                 if uploaded_file.name.endswith('.csv'):
                     df = pd.read_csv(uploaded_file)
@@ -711,104 +223,161 @@ def main():
                     df = pd.read_excel(uploaded_file)
                 
                 st.session_state.df = df
-                st.success(f"✅ Loaded {len(df):,} rows × {len(df.columns)} columns")
+                st.session_state.analysis_complete = False
+                st.success(f"Loaded: {len(df):,} rows × {len(df.columns)} columns")
                 
             except Exception as e:
-                st.error(f"Error loading file: {e}")
+                st.error(f"Error loading file: {str(e)}")
                 return
         
         if st.session_state.df is not None:
             st.markdown("---")
-            st.markdown("### ⚙️ Settings")
+            st.markdown("### Analysis Control")
             
-            show_debug = st.checkbox("Show Debug Info", value=False)
+            if st.button("Run Complete Analysis", type="primary", use_container_width=True):
+                st.session_state.analysis_complete = False
+            
+            st.markdown("---")
+            st.markdown("### System Information")
+            st.caption(f"**Status:** {'Analysis Complete' if st.session_state.analysis_complete else 'Ready'}")
+            st.caption(f"**Version:** 5.0 Enterprise")
     
-    # Main content
+    # Main content area
     if st.session_state.df is None:
-        st.info("👆 Upload a CSV or Excel file to begin analysis")
+        # Welcome screen
+        st.info("Upload a dataset to begin comprehensive analytics")
         
-        # Demo section
-        st.markdown("### 🎯 Features")
+        st.markdown("### Platform Capabilities")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown("""
-            **📊 Semantic Profiling**
-            - Auto-detect column types
-            - Business model generation
-            - KPI discovery
+            **Autonomous Analysis**
+            - Automatic pattern discovery
+            - Statistical significance testing
+            - Anomaly and outlier detection
+            - Trend identification
+            - Correlation analysis
             """)
         
         with col2:
             st.markdown("""
-            **🔮 Predictive Analytics**
-            - Forecast eligibility check
-            - Prophet-based forecasting
-            - Confidence intervals
+            **Predictive Analytics**
+            - Multi-model forecasting
+            - Confidence interval estimation
+            - Trend decomposition
+            - Seasonality detection
+            - Risk assessment
             """)
         
         with col3:
             st.markdown("""
-            **💡 AI Insights**
-            - Automated insight generation
-            - Narrative AI summaries
-            - Actionable recommendations
+            **Intelligent Insights**
+            - Natural language summaries
+            - Context-aware recommendations
+            - Visual analytics suggestions
+            - Quality assessment
+            - Business intelligence extraction
             """)
+        
+        st.markdown("---")
+        
+        st.markdown("### Technology Stack")
+        st.markdown("""
+        This platform leverages advanced machine learning algorithms, statistical methods, 
+        and large language models to provide enterprise-grade analytics capabilities comparable 
+        to leading business intelligence platforms.
+        """)
         
         return
     
     df = st.session_state.df
     
-    # ========================================================================
-    # STEP 1: SEMANTIC PROFILER ENGINE
-    # ========================================================================
+    # Execute analysis pipeline
+    if not st.session_state.analysis_complete:
+        with st.spinner("Executing comprehensive analysis pipeline..."):
+            try:
+                # Phase 1: Semantic profiling
+                profiler = DatasetProfiler(df)
+                profiles = profiler.profile()
+                
+                classifier = SemanticClassifier(profiles)
+                semantic_model = classifier.classify()
+                
+                # Phase 2: Metric intelligence
+                metric_engine = MetricIntelligenceEngine(df, semantic_model)
+                kpi_candidates = metric_engine.discover_kpis()
+                
+                # Phase 3: Statistical analysis
+                ai_agent = AIAnalysisAgent(df, semantic_model)
+                analysis_plan = ai_agent.create_analysis_plan()
+                analysis_results = ai_agent.execute_analysis()
+                
+                # Phase 4: RAG system initialization
+                rag_system = RAGDocumentSystem(df, semantic_model, analysis_results)
+                rag_system.index_analysis_results()
+                
+                # Phase 5: Agentic orchestrator
+                orchestrator = AgenticAnalysisOrchestrator(
+                    df, semantic_model, analysis_results, rag_system
+                )
+                
+                # Phase 6: LLM-powered insights
+                llm_engine = LLMAnalyticEngine(df, semantic_model, analysis_results)
+                executive_summary = llm_engine.generate_comprehensive_summary()
+                recommendations = llm_engine.generate_strategic_recommendations()
+                
+                # Phase 7: Visualization intelligence
+                viz_recommender = VisualizationRecommender(df, semantic_model)
+                viz_recommendations = viz_recommender.recommend_charts()
+                
+                # Store results
+                st.session_state.semantic_model = semantic_model
+                st.session_state.kpi_candidates = kpi_candidates
+                st.session_state.analysis_results = analysis_results
+                st.session_state.executive_summary = executive_summary
+                st.session_state.recommendations = recommendations
+                st.session_state.viz_recommendations = viz_recommendations
+                st.session_state.rag_system = rag_system
+                st.session_state.agentic_orchestrator = orchestrator
+                st.session_state.analysis_complete = True
+                
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Analysis error: {str(e)}")
+                return
     
-    with st.spinner("🔍 Running semantic profiler..."):
-        profiler = DatasetProfiler(df)
-        profiles = profiler.profile()
-        
-        classifier = SemanticClassifier(profiles)
-        semantic_model = classifier.classify()
-        
-        st.session_state.semantic_model = semantic_model
+    # Retrieve analysis results
+    semantic_model = st.session_state.semantic_model
+    kpi_candidates = st.session_state.kpi_candidates
+    analysis_results = st.session_state.analysis_results
+    executive_summary = st.session_state.executive_summary
+    recommendations = st.session_state.recommendations
+    viz_recommendations = st.session_state.viz_recommendations
+    rag_system = st.session_state.rag_system
+    orchestrator = st.session_state.agentic_orchestrator
     
-    # ========================================================================
-    # STEP 2: BUSINESS MODEL GENERATOR
-    # ========================================================================
-    
-    with st.spinner("🏢 Generating business model..."):
-        bm_generator = BusinessModelGenerator(df, semantic_model)
-        business_model = bm_generator.generate_model()
-    
-    # ========================================================================
-    # STEP 3: METRIC INTELLIGENCE ENGINE
-    # ========================================================================
-    
-    with st.spinner("📊 Discovering KPIs..."):
-        metric_engine = MetricIntelligenceEngine(df, semantic_model)
-        kpi_candidates = metric_engine.discover_kpis()
-        
-        st.session_state.kpi_candidates = kpi_candidates
-    
-    # ========================================================================
-    # TABS
-    # ========================================================================
-    
+    # Navigation tabs
     tabs = st.tabs([
-        "📊 Overview",
-        "🎯 KPIs & Metrics",
-        "🔮 Forecasting",
-        "💡 Insights",
-        "📈 Visualizations"
+        "Executive Summary",
+        "Statistical Analysis",
+        "Predictive Modeling",
+        "Visual Analytics",
+        "Natural Language Query"
     ])
     
     # ========================================================================
-    # TAB 1: OVERVIEW
+    # TAB 1: EXECUTIVE SUMMARY
     # ========================================================================
-    
     with tabs[0]:
-        st.markdown("### 📋 Dataset Overview")
+        st.markdown("### Executive Summary")
+        
+        # Key metrics dashboard
+        quality = analysis_results.get('quality', {})
+        correlations = analysis_results.get('correlations', [])
+        outliers = analysis_results.get('outliers', {})
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -816,386 +385,510 @@ def main():
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-value">{len(df):,}</div>
-                <div class="metric-label">Rows</div>
+                <div class="metric-label">Total Records</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
+            completeness = quality.get('completeness', 0)
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value">{len(df.columns)}</div>
-                <div class="metric-label">Columns</div>
+                <div class="metric-value">{completeness:.1f}%</div>
+                <div class="metric-label">Data Quality</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
-            completeness = (1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value">{completeness:.1f}%</div>
-                <div class="metric-label">Complete</div>
+                <div class="metric-value">{len(correlations)}</div>
+                <div class="metric-label">Correlations Found</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
-            memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value">{memory_mb:.1f}MB</div>
-                <div class="metric-label">Memory</div>
+                <div class="metric-value">{len(kpi_candidates)}</div>
+                <div class="metric-label">Key Metrics</div>
             </div>
             """, unsafe_allow_html=True)
         
         st.markdown("---")
         
-        st.markdown("### 🏢 Business Model")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"""
-            **Entity Type:** {business_model['entity_type']}  
-            **Grain:** {business_model['grain']}  
-            **Time Dimension:** {business_model['primary_time_dimension'] or 'None'}
-            """)
-        
-        with col2:
-            st.markdown("**Semantic Classification:**")
-            st.markdown(f"- ⏰ Time Columns: {len(semantic_model.time_columns)}")
-            st.markdown(f"- 📊 Measures: {len(semantic_model.measures)}")
-            st.markdown(f"- 📁 Dimensions: {len(semantic_model.dimensions)}")
-            st.markdown(f"- 🔑 Identifiers: {len(semantic_model.identifiers)}")
+        # AI-generated summary
+        st.markdown("### Analytical Findings")
+        st.markdown(executive_summary)
         
         st.markdown("---")
         
-        st.markdown("### 📄 Data Preview")
-        st.dataframe(df.head(100), use_container_width=True, height=400)
+        # Strategic recommendations
+        st.markdown("### Strategic Recommendations")
+        for i, rec in enumerate(recommendations[:5], 1):
+            st.markdown(f"""
+            <div class="recommendation-card">
+                <strong>Recommendation {i}</strong>
+                <p>{rec}</p>
+            </div>
+            """, unsafe_allow_html=True)
     
     # ========================================================================
-    # TAB 2: KPIs & METRICS
+    # TAB 2: STATISTICAL ANALYSIS
     # ========================================================================
-    
     with tabs[1]:
-        st.markdown("### 🎯 Discovered KPIs")
+        st.markdown("### Comprehensive Statistical Analysis")
         
-        if not kpi_candidates:
-            st.info("No KPIs discovered. Upload data with numeric measures.")
-        else:
-            st.markdown(f"Found **{len(kpi_candidates)} KPI candidates** ranked by business value")
+        # Data quality assessment
+        with st.expander("Data Quality Assessment", expanded=True):
+            quality = analysis_results.get('quality', {})
             
-            for i, kpi in enumerate(kpi_candidates[:10], 1):
-                with st.expander(f"#{i} {kpi.column} - Score: {kpi.score:.0f}/100"):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.markdown(f"**Category:** {kpi.category}")
-                        st.markdown("**Rationale:**")
-                        for reason in kpi.rationale:
-                            st.markdown(f"- {reason}")
-                    
-                    with col2:
-                        # Show statistics
-                        if kpi.column in df.columns:
-                            series = df[kpi.column].dropna()
-                            
-                            st.metric("Mean", f"{series.mean():.2f}")
-                            st.metric("Std Dev", f"{series.std():.2f}")
-                            st.metric("Range", f"{series.min():.2f} - {series.max():.2f}")
-                    
-                    # Visualization
-                    if kpi.column in df.columns:
-                        fig = px.histogram(
-                            df,
-                            x=kpi.column,
-                            title=f"Distribution of {kpi.column}",
-                            template='plotly_dark',
-                            color_discrete_sequence=['#6366f1']
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Completeness", f"{quality.get('completeness', 0):.2f}%")
+                st.metric("Total Records", f"{quality.get('total_rows', 0):,}")
+                st.metric("Total Attributes", quality.get('total_columns', 0))
+            
+            with col2:
+                st.metric("Missing Values", f"{quality.get('missing_cells', 0):,}")
+                st.metric("Duplicate Records", quality.get('duplicate_rows', 0))
+                
+                if quality.get('issues'):
+                    st.warning(f"{len(quality['issues'])} quality issues detected")
+                else:
+                    st.success("Data quality is excellent")
+        
+        # Correlation analysis
+        correlations = analysis_results.get('correlations', [])
+        if correlations:
+            st.markdown("### Correlation Analysis")
+            
+            for corr in correlations[:5]:
+                strength_class = "success" if corr['strength'] == 'strong' else "warning"
+                st.markdown(f"""
+                <div class="insight-card">
+                    <h4><span class="status-badge status-{strength_class}">{corr['strength'].upper()}</span> 
+                    {corr['direction'].capitalize()} Correlation</h4>
+                    <p><strong>{corr['var1']}</strong> and <strong>{corr['var2']}</strong> 
+                    show correlation coefficient of {corr['correlation']:.3f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Distribution analysis
+        distributions = analysis_results.get('distributions', {})
+        if distributions:
+            st.markdown("### Distribution Analysis")
+            
+            for col_name, data in list(distributions.items())[:3]:
+                st.markdown(f"""
+                <div class="insight-card">
+                    <h4>{col_name}</h4>
+                    <p><strong>Shape:</strong> {data['shape']}<br>
+                    <strong>Skewness:</strong> {data['skewness']:.3f} | 
+                    <strong>Kurtosis:</strong> {data['kurtosis']:.3f}<br>
+                    <strong>Normality:</strong> {'Normally distributed' if data['is_normal'] else 'Non-normal distribution'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Outlier detection
+        outliers = analysis_results.get('outliers', {})
+        if outliers:
+            st.markdown("### Outlier Detection Results")
+            
+            outlier_df = pd.DataFrame([
+                {
+                    'Attribute': col,
+                    'Outlier Count': data['count'],
+                    'Percentage': f"{data['percentage']:.2f}%",
+                    'Lower Bound': f"{data['lower_bound']:.2f}",
+                    'Upper Bound': f"{data['upper_bound']:.2f}"
+                }
+                for col, data in outliers.items()
+            ])
+            
+            st.dataframe(outlier_df, use_container_width=True, hide_index=True)
+        
+        # Cluster analysis
+        clusters = analysis_results.get('clusters', {})
+        if clusters:
+            st.markdown("### Segmentation Analysis")
+            
+            st.info(f"Identified {clusters['n_clusters']} distinct segments using K-means clustering")
+            
+            cluster_data = []
+            for name, stats in clusters['cluster_stats'].items():
+                cluster_data.append({
+                    'Segment': name,
+                    'Size': stats['size'],
+                    'Percentage': f"{stats['percentage']:.1f}%"
+                })
+            
+            st.dataframe(pd.DataFrame(cluster_data), use_container_width=True, hide_index=True)
     
     # ========================================================================
-    # TAB 3: FORECASTING
+    # TAB 3: PREDICTIVE MODELING
     # ========================================================================
-    
     with tabs[2]:
-        st.markdown("### 🔮 Predictive Forecasting")
+        st.markdown("### Predictive Analytics & Forecasting")
         
         if not semantic_model.time_columns:
-            st.warning("⚠️ No time column detected. Forecasting requires temporal data.")
+            st.warning("Temporal data not detected. Forecasting requires time-series data.")
         else:
             time_col = semantic_model.time_columns[0]
             
-            # Convert to datetime if needed
+            # Ensure datetime format
             if not pd.api.types.is_datetime64_any_dtype(df[time_col]):
                 try:
                     df[time_col] = pd.to_datetime(df[time_col])
                 except:
-                    st.error(f"Cannot convert {time_col} to datetime")
+                    st.error("Unable to parse time column as datetime")
                     return
             
-            st.markdown(f"**Time Column:** {time_col}")
-            
-            # Select metric to forecast
             forecast_candidates = (semantic_model.measures + 
                                  semantic_model.currencies + 
                                  semantic_model.counts)
             
             if not forecast_candidates:
-                st.info("No numeric measures available for forecasting")
+                st.info("No quantitative metrics available for forecasting")
             else:
+                st.markdown("#### Select Target Metric")
                 selected_metric = st.selectbox(
-                    "Select metric to forecast",
-                    forecast_candidates
+                    "Metric for forecasting",
+                    forecast_candidates,
+                    label_visibility="collapsed"
                 )
                 
-                # Eligibility check
-                st.markdown("#### 📋 Forecast Eligibility Check")
+                # Eligibility assessment
+                st.markdown("#### Forecast Eligibility Assessment")
                 
-                eligibility_engine = ForecastEligibilityEngine(
-                    df, time_col, selected_metric
-                )
+                eligibility_engine = ForecastEligibilityEngine(df, time_col, selected_metric)
                 eligibility = eligibility_engine.check()
                 
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    status = "success" if eligibility.is_eligible else "error"
-                    st.markdown(f"""
-                    <div class="status-badge status-{status}">
-                        {'✅ ELIGIBLE' if eligibility.is_eligible else '❌ NOT ELIGIBLE'}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    status_class = "success" if eligibility.is_eligible else "error"
+                    status_text = "ELIGIBLE" if eligibility.is_eligible else "NOT ELIGIBLE"
+                    st.markdown(f'<span class="status-badge status-{status_class}">{status_text}</span>', 
+                              unsafe_allow_html=True)
                 
                 with col2:
                     st.metric("Eligibility Score", f"{eligibility.score:.0f}/100")
                 
                 with col3:
-                    st.metric("Warnings", len(eligibility.warnings))
+                    st.metric("Quality Warnings", len(eligibility.warnings))
                 
-                st.markdown(f"**Reason:** {eligibility.reason}")
+                st.info(eligibility.reason)
                 
                 if eligibility.warnings:
-                    with st.expander("⚠️ View Warnings"):
+                    with st.expander("View Quality Warnings"):
                         for warning in eligibility.warnings:
                             st.warning(warning)
                 
-                # Forecasting
                 if eligibility.is_eligible:
                     st.markdown("---")
-                    st.markdown("#### 📈 Generate Forecast")
+                    st.markdown("#### Forecast Configuration")
                     
                     forecast_periods = st.slider(
-                        "Forecast periods",
+                        "Forecast horizon (periods)",
                         min_value=7,
                         max_value=90,
                         value=30,
                         step=7
                     )
                     
-                    if st.button("🚀 Generate Forecast", type="primary"):
-                        with st.spinner("Running Prophet forecast model..."):
+                    if st.button("Generate Forecast", type="primary"):
+                        with st.spinner("Running predictive models..."):
                             try:
-                                forecast_engine = MultiModelForecastEngine(
-                                    df, time_col, selected_metric
-                                )
-                                
-                                forecast_df = forecast_engine.forecast_prophet(
-                                    periods=forecast_periods
-                                )
+                                forecast_engine = AdvancedForecastEngine(df, time_col, selected_metric)
+                                forecast_df = forecast_engine.forecast_prophet(periods=forecast_periods)
+                                forecast_metrics = forecast_engine.get_forecast_metrics(forecast_df)
                                 
                                 # Visualization
-                                fig = forecast_engine.create_forecast_visualization(forecast_df)
+                                fig = go.Figure()
+                                
+                                # Historical data
+                                historical = df[[time_col, selected_metric]].dropna()
+                                fig.add_trace(go.Scatter(
+                                    x=historical[time_col],
+                                    y=historical[selected_metric],
+                                    mode='lines+markers',
+                                    name='Historical Data',
+                                    line=dict(color='#4facfe', width=2),
+                                    marker=dict(size=4)
+                                ))
+                                
+                                # Forecast
+                                forecast_only = forecast_df.iloc[-forecast_periods:]
+                                fig.add_trace(go.Scatter(
+                                    x=forecast_only['ds'],
+                                    y=forecast_only['yhat'],
+                                    mode='lines',
+                                    name='Forecast',
+                                    line=dict(color='#10b981', width=2, dash='dash')
+                                ))
+                                
+                                # Confidence interval
+                                fig.add_trace(go.Scatter(
+                                    x=forecast_only['ds'],
+                                    y=forecast_only['yhat_upper'],
+                                    mode='lines',
+                                    line=dict(width=0),
+                                    showlegend=False,
+                                    hoverinfo='skip'
+                                ))
+                                
+                                fig.add_trace(go.Scatter(
+                                    x=forecast_only['ds'],
+                                    y=forecast_only['yhat_lower'],
+                                    mode='lines',
+                                    line=dict(width=0),
+                                    fillcolor='rgba(79, 172, 254, 0.2)',
+                                    fill='tonexty',
+                                    name='95% Confidence Interval',
+                                    hoverinfo='skip'
+                                ))
+                                
+                                fig.update_layout(
+                                    title=f'Forecast: {selected_metric}',
+                                    xaxis_title='Time Period',
+                                    yaxis_title=selected_metric,
+                                    template='plotly_dark',
+                                    height=500,
+                                    hovermode='x unified'
+                                )
+                                
                                 st.plotly_chart(fig, use_container_width=True)
                                 
                                 # Forecast summary
-                                st.markdown("#### 📊 Forecast Summary")
-                                
-                                forecast_only = forecast_df.iloc[-forecast_periods:]
+                                st.markdown("#### Forecast Summary")
                                 
                                 col1, col2, col3 = st.columns(3)
                                 
                                 with col1:
-                                    avg_forecast = forecast_only['yhat'].mean()
-                                    st.metric("Avg Forecast", f"{avg_forecast:.2f}")
+                                    st.metric("Mean Forecast Value", f"{forecast_metrics['mean_forecast']:.2f}")
                                 
                                 with col2:
-                                    trend = ((forecast_only['yhat'].iloc[-1] - 
-                                             forecast_only['yhat'].iloc[0]) / 
-                                            forecast_only['yhat'].iloc[0] * 100)
-                                    st.metric("Trend", f"{trend:+.1f}%")
+                                    trend_direction = forecast_metrics['forecast_trend']
+                                    st.metric("Trend Direction", trend_direction.capitalize())
                                 
                                 with col3:
-                                    uncertainty = (forecast_only['yhat_upper'] - 
-                                                 forecast_only['yhat_lower']).mean()
-                                    st.metric("Avg Uncertainty", f"±{uncertainty:.2f}")
+                                    st.metric("Volatility (Std Dev)", f"{forecast_metrics['volatility']:.2f}")
                                 
-                                # Download
-                                csv = forecast_only.to_csv(index=False)
+                                # Export option
+                                st.markdown("#### Export Forecast")
+                                csv_export = forecast_only[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_csv(index=False)
                                 st.download_button(
-                                    "📥 Download Forecast",
-                                    csv,
-                                    "forecast.csv",
-                                    "text/csv"
+                                    "Download Forecast Data (CSV)",
+                                    csv_export,
+                                    f"forecast_{selected_metric}.csv",
+                                    "text/csv",
+                                    use_container_width=True
                                 )
                                 
                             except Exception as e:
-                                st.error(f"Forecasting error: {e}")
+                                st.error(f"Forecasting error: {str(e)}")
                 else:
-                    st.info("💡 Improve eligibility by:\n- Adding more historical data\n- Ensuring regular time intervals\n- Reducing volatility")
+                    st.info("This metric does not meet the minimum requirements for reliable forecasting. Consider collecting more data or addressing quality issues.")
     
     # ========================================================================
-    # TAB 4: INSIGHTS
+    # TAB 4: VISUAL ANALYTICS
     # ========================================================================
-    
     with tabs[3]:
-        st.markdown("### 💡 AI-Generated Insights")
+        st.markdown("### Recommended Visual Analytics")
         
-        with st.spinner("🤖 Generating insights..."):
-            insight_engine = InsightEngine(df, semantic_model, kpi_candidates)
-            insights = insight_engine.generate_insights()
-            
-            st.session_state.insights = insights
+        st.info("Based on data structure and relationships, the following visualizations are recommended")
         
-        if not insights:
-            st.info("No significant insights detected")
-        else:
-            # Generate narrative
-            narrative_engine = NarrativeAIEngine(insights, semantic_model)
-            executive_summary = narrative_engine.generate_executive_summary()
+        # Filter high-priority visualizations
+        high_priority_viz = [v for v in viz_recommendations if v['priority'] == 'high']
+        
+        if high_priority_viz:
+            st.markdown("#### Priority Visualizations")
             
-            st.markdown("""
-            <div class="narrative-section">
-            """, unsafe_allow_html=True)
+            for viz in high_priority_viz[:4]:
+                with st.expander(f"{viz['title']}", expanded=True):
+                    st.caption(f"Rationale: {viz['reason']}")
+                    
+                    try:
+                        if viz['type'] == 'line':
+                            fig = px.line(
+                                df, 
+                                x=viz['x'], 
+                                y=viz['y'],
+                                title=viz['title'],
+                                template='plotly_dark'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        elif viz['type'] == 'bar':
+                            agg_df = df.groupby(viz['x'])[viz['y']].mean().reset_index()
+                            fig = px.bar(
+                                agg_df,
+                                x=viz['x'],
+                                y=viz['y'],
+                                title=viz['title'],
+                                template='plotly_dark'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        elif viz['type'] == 'heatmap':
+                            numeric_cols = df[viz['data']].select_dtypes(include=[np.number]).columns
+                            if len(numeric_cols) >= 2:
+                                corr = df[numeric_cols].corr()
+                                fig = px.imshow(
+                                    corr,
+                                    text_auto='.2f',
+                                    title=viz['title'],
+                                    template='plotly_dark',
+                                    color_continuous_scale='RdBu_r'
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                        
+                        elif viz['type'] == 'scatter':
+                            fig = px.scatter(
+                                df,
+                                x=viz['x'],
+                                y=viz['y'],
+                                title=viz['title'],
+                                template='plotly_dark',
+                                trendline='ols'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        elif viz['type'] == 'histogram':
+                            fig = px.histogram(
+                                df,
+                                x=viz['x'],
+                                title=viz['title'],
+                                template='plotly_dark'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        elif viz['type'] == 'box':
+                            fig = px.box(
+                                df,
+                                y=viz['y'],
+                                title=viz['title'],
+                                template='plotly_dark'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                    
+                    except Exception as e:
+                        st.error(f"Visualization error: {str(e)}")
+        
+        # Additional visualizations
+        medium_priority_viz = [v for v in viz_recommendations if v['priority'] == 'medium']
+        if medium_priority_viz:
+            st.markdown("#### Additional Visualizations")
             
-            st.markdown(executive_summary)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            # Individual insights
-            st.markdown("### 📋 Detailed Insights")
-            
-            priority_filter = st.multiselect(
-                "Filter by priority",
-                ["Critical", "High", "Medium", "Low"],
-                default=["Critical", "High", "Medium"]
-            )
-            
-            filtered_insights = [i for i in insights if i.priority in priority_filter]
-            
-            for insight in filtered_insights:
-                priority_class = {
-                    'Critical': 'error',
-                    'High': 'warning',
-                    'Medium': 'success',
-                    'Low': 'success'
-                }.get(insight.priority, 'success')
-                
-                st.markdown(f"""
-                <div class="insight-card">
-                    <span class="status-badge status-{priority_class}">{insight.priority}</span>
-                    <h4>{insight.title}</h4>
-                    <p>{insight.description}</p>
-                    {'<p><strong>Metric:</strong> ' + insight.metric + '</p>' if insight.metric else ''}
-                </div>
-                """, unsafe_allow_html=True)
+            for viz in medium_priority_viz[:2]:
+                with st.expander(f"{viz['title']}"):
+                    st.caption(f"Rationale: {viz['reason']}")
+                    
+                    # Similar visualization logic as above
+                    try:
+                        if viz['type'] == 'histogram':
+                            fig = px.histogram(df, x=viz['x'], title=viz['title'], template='plotly_dark')
+                            st.plotly_chart(fig, use_container_width=True)
+                        elif viz['type'] == 'scatter':
+                            fig = px.scatter(df, x=viz['x'], y=viz['y'], title=viz['title'], 
+                                           template='plotly_dark', trendline='ols')
+                            st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Visualization error: {str(e)}")
     
     # ========================================================================
-    # TAB 5: VISUALIZATIONS
+    # TAB 5: NATURAL LANGUAGE QUERY
     # ========================================================================
-    
     with tabs[4]:
-        st.markdown("### 📈 Interactive Visualizations")
+        st.markdown("### Natural Language Analytics Interface")
         
-        # Chart builder
-        col1, col2 = st.columns([2, 1])
+        st.info("Query your data using natural language. The system will retrieve relevant analysis and provide context-aware responses.")
         
-        with col1:
-            chart_type = st.selectbox(
-                "Chart Type",
-                ["Line Chart", "Bar Chart", "Scatter Plot", "Box Plot", "Heatmap"]
-            )
+        # Quick query buttons
+        st.markdown("#### Suggested Queries")
         
-        with col2:
-            if chart_type == "Heatmap":
-                st.info("Heatmap of numeric correlations")
-            else:
-                x_col = st.selectbox("X-axis", df.columns)
-                y_col = st.selectbox("Y-axis", [c for c in df.columns if c != x_col])
+        suggested_queries = [
+            "Summarize the key findings from the analysis",
+            "What are the most significant correlations?",
+            "Identify any concerning trends in the data",
+            "What metrics should we prioritize?",
+            "Describe the data quality issues",
+            "What patterns were discovered?"
+        ]
         
-        # Generate chart
-        if st.button("Generate Chart"):
-            if chart_type == "Heatmap":
-                numeric_cols = df.select_dtypes(include=[np.number]).columns
-                if len(numeric_cols) >= 2:
-                    corr = df[numeric_cols].corr()
+        cols = st.columns(3)
+        for i, query in enumerate(suggested_queries):
+            with cols[i % 3]:
+                if st.button(query, key=f"query_{i}", use_container_width=True):
+                    st.session_state.current_query = query
+        
+        # Custom query input
+        st.markdown("#### Custom Query")
+        user_query = st.text_input(
+            "Enter your question",
+            placeholder="e.g., What is driving the increase in sales?",
+            label_visibility="collapsed"
+        )
+        
+        # Process query
+        query_to_process = user_query if user_query else st.session_state.get('current_query', '')
+        
+        if query_to_process:
+            st.markdown("---")
+            st.markdown("#### Analysis Response")
+            
+            with st.spinner("Processing query and retrieving relevant analysis..."):
+                try:
+                    # Use agentic orchestrator to process query
+                    response = orchestrator.process_natural_language_query(query_to_process)
                     
-                    fig = px.imshow(
-                        corr,
-                        text_auto=True,
-                        aspect="auto",
-                        title="Correlation Heatmap",
-                        template='plotly_dark',
-                        color_continuous_scale='RdBu'
-                    )
+                    st.markdown(response)
                     
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("Need at least 2 numeric columns for heatmap")
-            
-            elif chart_type == "Line Chart":
-                fig = px.line(
-                    df,
-                    x=x_col,
-                    y=y_col,
-                    title=f"{y_col} over {x_col}",
-                    template='plotly_dark'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            elif chart_type == "Bar Chart":
-                fig = px.bar(
-                    df,
-                    x=x_col,
-                    y=y_col,
-                    title=f"{y_col} by {x_col}",
-                    template='plotly_dark',
-                    color_discrete_sequence=['#6366f1']
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            elif chart_type == "Scatter Plot":
-                fig = px.scatter(
-                    df,
-                    x=x_col,
-                    y=y_col,
-                    title=f"{y_col} vs {x_col}",
-                    template='plotly_dark',
-                    trendline="ols"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            elif chart_type == "Box Plot":
-                fig = px.box(
-                    df,
-                    x=x_col,
-                    y=y_col,
-                    title=f"{y_col} distribution by {x_col}",
-                    template='plotly_dark',
-                    color_discrete_sequence=['#6366f1']
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                    # Show relevant context from RAG
+                    if rag_system:
+                        relevant_context = rag_system.retrieve_relevant_context(query_to_process)
+                        
+                        if relevant_context:
+                            with st.expander("Related Analysis Context"):
+                                for context in relevant_context[:3]:
+                                    st.markdown(f"- {context}")
+                
+                except Exception as e:
+                    st.error(f"Query processing error: {str(e)}")
+                    
+                    # Fallback to pattern-based responses
+                    if "summary" in query_to_process.lower() or "findings" in query_to_process.lower():
+                        st.markdown(executive_summary)
+                    elif "correlation" in query_to_process.lower():
+                        correlations = analysis_results.get('correlations', [])
+                        if correlations:
+                            st.markdown("**Significant Correlations:**")
+                            for corr in correlations[:5]:
+                                st.markdown(f"- {corr['var1']} and {corr['var2']}: {corr['correlation']:.3f} ({corr['strength']} {corr['direction']})")
+                    elif "trend" in query_to_process.lower():
+                        time_series = analysis_results.get('time_series', {})
+                        if time_series:
+                            st.markdown("**Trend Analysis:**")
+                            for metric, data in time_series.items():
+                                st.markdown(f"- {metric}: {data['direction']} trend with {data['trend_strength']:.1%} strength")
+                    elif "quality" in query_to_process.lower():
+                        quality = analysis_results.get('quality', {})
+                        st.markdown(f"**Data Quality Assessment:**")
+                        st.markdown(f"- Completeness: {quality.get('completeness', 0):.2f}%")
+                        st.markdown(f"- Missing values: {quality.get('missing_cells', 0):,}")
+                        st.markdown(f"- Duplicate records: {quality.get('duplicate_rows', 0)}")
+                    else:
+                        st.markdown("Analysis complete. Please refine your query for more specific insights.")
     
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #94a3b8; padding: 2rem;">
-        <p><strong>AI Analytics Dashboard v3.0</strong> | Production Edition</p>
-        <p>Built with Semantic Intelligence • Prophet Forecasting • Automated Insights</p>
+    <div style="text-align: center; color: #64748b; padding: 2rem 0;">
+        <p><strong>Advanced Analytics Platform v5.0</strong> | Enterprise Edition</p>
+        <p style="font-size: 0.875rem;">Autonomous Intelligence • Statistical Analysis • Predictive Modeling • Natural Language Understanding</p>
     </div>
     """, unsafe_allow_html=True)
-
 
 if __name__ == "__main__":
     main()
