@@ -52,6 +52,8 @@ if 'df' not in st.session_state:
     st.session_state.df = None
 if 'analysis_complete' not in st.session_state:
     st.session_state.analysis_complete = False
+if 'run_analysis' not in st.session_state:
+    st.session_state.run_analysis = False
 if 'rag_system' not in st.session_state:
     st.session_state.rag_system = None
 if 'agentic_orchestrator' not in st.session_state:
@@ -217,14 +219,15 @@ def main():
         
         if uploaded_file:
             try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                st.session_state.df = df
-                st.session_state.analysis_complete = False
-                st.success(f"Loaded: {len(df):,} rows × {len(df.columns)} columns")
+                with st.spinner("Loading dataset..."):
+                    if uploaded_file.name.endswith('.csv'):
+                        df = pd.read_csv(uploaded_file)
+                    else:
+                        df = pd.read_excel(uploaded_file)
+                    
+                    st.session_state.df = df
+                    st.session_state.analysis_complete = False
+                    st.success(f"Loaded: {len(df):,} rows × {len(df.columns)} columns")
                 
             except Exception as e:
                 st.error(f"Error loading file: {str(e)}")
@@ -235,11 +238,14 @@ def main():
             st.markdown("### Analysis Control")
             
             if st.button("Run Complete Analysis", type="primary", use_container_width=True):
+                st.session_state.run_analysis = True
                 st.session_state.analysis_complete = False
+                st.rerun()
             
             st.markdown("---")
             st.markdown("### System Information")
-            st.caption(f"**Status:** {'Analysis Complete' if st.session_state.analysis_complete else 'Ready'}")
+            st.caption(f"**Status:** {'Analysis Complete' if st.session_state.analysis_complete else 'Awaiting Analysis'}")
+            st.caption(f"**Dataset:** {len(st.session_state.df):,} rows")
             st.caption(f"**Version:** 5.0 Enterprise")
     
     # Main content area
@@ -294,60 +300,93 @@ def main():
     
     df = st.session_state.df
     
-    # Execute analysis pipeline
+    # Execute analysis pipeline when triggered
+    if st.session_state.run_analysis and not st.session_state.analysis_complete:
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            # Phase 1: Semantic profiling
+            status_text.text("Phase 1/7: Semantic profiling...")
+            progress_bar.progress(10)
+            
+            profiler = DatasetProfiler(df)
+            profiles = profiler.profile()
+            
+            classifier = SemanticClassifier(profiles)
+            semantic_model = classifier.classify()
+            progress_bar.progress(20)
+            
+            # Phase 2: Metric intelligence
+            status_text.text("Phase 2/7: Discovering key metrics...")
+            metric_engine = MetricIntelligenceEngine(df, semantic_model)
+            kpi_candidates = metric_engine.discover_kpis()
+            progress_bar.progress(35)
+            
+            # Phase 3: Statistical analysis
+            status_text.text("Phase 3/7: Running statistical analysis...")
+            ai_agent = AIAnalysisAgent(df, semantic_model)
+            analysis_plan = ai_agent.create_analysis_plan()
+            analysis_results = ai_agent.execute_analysis()
+            progress_bar.progress(50)
+            
+            # Phase 4: RAG system initialization
+            status_text.text("Phase 4/7: Initializing knowledge base...")
+            rag_system = RAGDocumentSystem(df, semantic_model, analysis_results)
+            rag_system.index_analysis_results()
+            progress_bar.progress(65)
+            
+            # Phase 5: Agentic orchestrator
+            status_text.text("Phase 5/7: Activating AI orchestrator...")
+            orchestrator = AgenticAnalysisOrchestrator(
+                df, semantic_model, analysis_results, rag_system
+            )
+            progress_bar.progress(75)
+            
+            # Phase 6: LLM-powered insights
+            status_text.text("Phase 6/7: Generating insights...")
+            llm_engine = LLMAnalyticEngine(df, semantic_model, analysis_results)
+            executive_summary = llm_engine.generate_comprehensive_summary()
+            recommendations = llm_engine.generate_strategic_recommendations()
+            progress_bar.progress(85)
+            
+            # Phase 7: Visualization intelligence
+            status_text.text("Phase 7/7: Creating visualizations...")
+            viz_recommender = VisualizationRecommender(df, semantic_model)
+            viz_recommendations = viz_recommender.recommend_charts()
+            progress_bar.progress(100)
+            
+            # Store results
+            st.session_state.semantic_model = semantic_model
+            st.session_state.kpi_candidates = kpi_candidates
+            st.session_state.analysis_results = analysis_results
+            st.session_state.executive_summary = executive_summary
+            st.session_state.recommendations = recommendations
+            st.session_state.viz_recommendations = viz_recommendations
+            st.session_state.rag_system = rag_system
+            st.session_state.agentic_orchestrator = orchestrator
+            st.session_state.analysis_complete = True
+            st.session_state.run_analysis = False
+            
+            status_text.text("Analysis complete!")
+            progress_bar.empty()
+            status_text.empty()
+            
+            st.success("✓ Analysis completed successfully")
+            st.rerun()
+            
+        except Exception as e:
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"Analysis error: {str(e)}")
+            st.session_state.run_analysis = False
+            return
+    
+    # Display results if analysis is complete
     if not st.session_state.analysis_complete:
-        with st.spinner("Executing comprehensive analysis pipeline..."):
-            try:
-                # Phase 1: Semantic profiling
-                profiler = DatasetProfiler(df)
-                profiles = profiler.profile()
-                
-                classifier = SemanticClassifier(profiles)
-                semantic_model = classifier.classify()
-                
-                # Phase 2: Metric intelligence
-                metric_engine = MetricIntelligenceEngine(df, semantic_model)
-                kpi_candidates = metric_engine.discover_kpis()
-                
-                # Phase 3: Statistical analysis
-                ai_agent = AIAnalysisAgent(df, semantic_model)
-                analysis_plan = ai_agent.create_analysis_plan()
-                analysis_results = ai_agent.execute_analysis()
-                
-                # Phase 4: RAG system initialization
-                rag_system = RAGDocumentSystem(df, semantic_model, analysis_results)
-                rag_system.index_analysis_results()
-                
-                # Phase 5: Agentic orchestrator
-                orchestrator = AgenticAnalysisOrchestrator(
-                    df, semantic_model, analysis_results, rag_system
-                )
-                
-                # Phase 6: LLM-powered insights
-                llm_engine = LLMAnalyticEngine(df, semantic_model, analysis_results)
-                executive_summary = llm_engine.generate_comprehensive_summary()
-                recommendations = llm_engine.generate_strategic_recommendations()
-                
-                # Phase 7: Visualization intelligence
-                viz_recommender = VisualizationRecommender(df, semantic_model)
-                viz_recommendations = viz_recommender.recommend_charts()
-                
-                # Store results
-                st.session_state.semantic_model = semantic_model
-                st.session_state.kpi_candidates = kpi_candidates
-                st.session_state.analysis_results = analysis_results
-                st.session_state.executive_summary = executive_summary
-                st.session_state.recommendations = recommendations
-                st.session_state.viz_recommendations = viz_recommendations
-                st.session_state.rag_system = rag_system
-                st.session_state.agentic_orchestrator = orchestrator
-                st.session_state.analysis_complete = True
-                
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Analysis error: {str(e)}")
-                return
+        st.info("Click 'Run Complete Analysis' in the sidebar to begin")
+        return
     
     # Retrieve analysis results
     semantic_model = st.session_state.semantic_model
