@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -13,16 +13,17 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY app_production.py .
-COPY semantic_engine.py .
+# Copy application files (app_production.py imports intelligent_analyst and
+# rag_query_engine, which the original image left out)
+COPY *.py ./
 COPY .streamlit .streamlit
 
 # Expose port
 EXPOSE 8501
 
 # Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+# (python:*-slim has no curl)
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
 
 # Run application
 ENTRYPOINT ["streamlit", "run", "app_production.py", "--server.port=8501", "--server.address=0.0.0.0"]

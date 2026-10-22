@@ -116,13 +116,21 @@ def main():
         )
         
         if uploaded_file:
-            try:
-                df = pd.read_csv(uploaded_file)
-                st.session_state.df = df
-                st.session_state.analysis_complete = False
+            # Streamlit re-runs this script on every interaction and the uploader
+            # keeps returning the same file, so only reset state for a new file.
+            # (Resetting on every rerun meant the analysis never showed as complete.)
+            file_key = (uploaded_file.name, uploaded_file.size)
+            if st.session_state.get("loaded_file_key") != file_key:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.df = df
+                    st.session_state.analysis_complete = False
+                    st.session_state.loaded_file_key = file_key
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+            if st.session_state.df is not None:
+                df = st.session_state.df
                 st.success(f"Loaded: {len(df):,} rows × {len(df.columns)} cols")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
         
         if st.session_state.df is not None:
             st.markdown("---")
