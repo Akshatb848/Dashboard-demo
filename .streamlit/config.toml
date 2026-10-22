@@ -1,0 +1,8 @@
+# The app's custom CSS paints a dark background, so use Streamlit's dark theme
+# (with the light default, body text was dark-on-dark and unreadable).
+[theme]
+base = "dark"
+primaryColor = "#3b82f6"
+
+[browser]
+gatherUsageStats = false

@@ -96,7 +96,7 @@ def generate_ecommerce_data(n_rows=2000):
     np.random.seed(42)
     
     start_date = datetime(2023, 1, 1)
-    dates = pd.date_range(start_date, periods=n_rows, freq='H')
+    dates = pd.date_range(start_date, periods=n_rows, freq='h')
     
     data = {
         'timestamp': dates,
